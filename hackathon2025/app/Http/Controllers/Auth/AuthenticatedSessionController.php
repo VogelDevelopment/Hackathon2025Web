@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -46,6 +47,44 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         return redirect()->intended(route('dashboard', absolute: false));
+    }
+
+    public function extLogin(LoginRequest $request): JsonResponse
+    {
+        // Your secret key (must be 32 bytes for AES-256)
+        $secretKey = env('AES_SECRET_KEY'); // Store your key in .env
+
+        // Get the encrypted password (Base64)
+        $encryptedBase64 = $request->input('password');
+
+        // Decode Base64
+        $encryptedBytes = base64_decode($encryptedBase64);
+
+        // Decrypt using AES-256-ECB (no IV, zero padding)
+        $decryptedPassword = openssl_decrypt(
+            $encryptedBytes,
+            'aes-256-ecb',
+            $secretKey,
+            OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING
+        );
+
+        // Remove any trailing null bytes from zero padding
+        $decryptedPassword = rtrim($decryptedPassword, "\0");
+
+
+        // Replace the encrypted password with decrypted one for validation
+        $request->merge(['password' => $decryptedPassword]);
+        $user = $request->validateCredentials();
+
+        // Issue API token, e.g., using Sanctum
+        $token = $user->createToken($request->device_name ?? 'api')->plainTextToken;
+
+        return response()->json([
+            'access_token' => $token,
+            'token_type' => 'Bearer',
+            'username' => $user->name,
+            'group_name' => $user->group_name,
+        ]);
     }
 
     /**

@@ -11,33 +11,38 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
-import { type NavItem } from '@/types';
+import { User, type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, ShieldCheckIcon, Database, UserIcon } from 'lucide-react';
 import AppLogo from './app-logo';
 
-const mainNavItems: NavItem[] = [
-    {
-        title: 'Dashboard',
-        href: dashboard(),
-        icon: LayoutGrid,
-    },
-];
-
 const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({user}: {user: User}) {
+    const mainNavItems: NavItem[] = [
+        {
+            title: 'Startseite',
+            href: dashboard(),
+            icon: LayoutGrid,
+        },
+        {
+            title: 'Datenquellen',
+            href: "/datasources",
+            icon: Database,
+        },
+        {
+            title: 'Zertifikate',
+            href: "/certificates",
+            icon: ShieldCheckIcon,
+        },
+        {
+            title: user.group_name === 'admin' ? 'Alle Nutzer' : 'Mein Profil',
+            href: user.group_name === 'admin' ? "/profiles" : "/profile/" + user.id,
+            icon: UserIcon,
+        }
+    ];
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
