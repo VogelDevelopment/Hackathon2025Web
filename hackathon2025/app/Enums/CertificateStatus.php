@@ -6,4 +6,5 @@ enum CertificateStatus: string
 {
     case REQUESTED = 'requested';
     case APPROVED = 'approved';
+    case REJECTED = 'rejected';
 }

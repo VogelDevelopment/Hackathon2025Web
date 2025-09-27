@@ -7,13 +7,10 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CertificateController;
 
 Route::get('/', function () {
-    return Inertia::render('welcome');
+    return Inertia::render('dashboard');
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
 
     Route::get('marketplace', function () {
         return Inertia::render('marketplace');
@@ -24,9 +21,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('datasources/create', [DataSourceController::class, 'create']);
     Route::post('datasources', [DataSourceController::class, 'store']); // Changed from /new
     Route::get('datasources/{dataSource}/edit', [DataSourceController::class, 'edit']);
-    Route::get('datasources/{dataSource}', [DataSourceController::class, 'show']); 
+    Route::get('datasources/{dataSource}', [DataSourceController::class, 'show']);
     Route::put('datasources/{dataSource}', [DataSourceController::class, 'update']);
     Route::patch('datasources/{dataSource}', [DataSourceController::class, 'update']);
+    Route::post('datasources/{dataSource}/request-access', [DataSourceController::class, 'requestAccess']);
+    Route::post('datasources/{dataSource}/approve-access', [DataSourceController::class, 'approveAccess'])->middleware('auth');
+    Route::post('datasources/{dataSource}/deny-access', [DataSourceController::class, 'denyAccess'])->middleware('auth');
+    Route::post('datasources/{dataSource}/revoke-access', [DataSourceController::class, 'revokeAccess'])->middleware('auth');
+
 
     // Cerrtificate routes
     Route::get('certificates', [CertificateController::class, 'index']);
@@ -45,7 +47,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('profile/{profile}', [UserController::class, 'show']);
     Route::put('profile/{profile}', [UserController::class, 'update']);
     Route::patch('profile/{profile}', [UserController::class, 'update']);
+
+    Route::post('profile/certificate-upload', [UserController::class, 'uploadCertificate'])->name('user.certificate.upload');
+
+    // For admin/operator review:
+    Route::patch('profile/{user}/certificate/{certificate}/approve', [UserController::class, 'approveUserCertificate'])->name('user.certificate.approve');
+    Route::patch('profile/{user}/certificate/{certificate}/reject', [UserController::class, 'rejectUserCertificate'])->name('user.certificate.reject');
+    Route::delete('profile/{user}/certificate/{certificate}', [UserController::class, 'deleteUserCertificate'])->name('user.certificate.delete');
 });
 
-require __DIR__.'/settings.php';
-require __DIR__.'/auth.php';
+require __DIR__ . '/settings.php';
+require __DIR__ . '/auth.php';

@@ -1,14 +1,8 @@
 import AppLayout from '@/layouts/app-layout';
-import { PageProps, type BreadcrumbItem } from '@/types';
+import { Certificate, PageProps, type BreadcrumbItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler } from 'react';
-
-interface Certificate {
-    id: number;
-    name: string;
-    url: string;
-}
 
 interface Props extends PageProps {
     certificate?: Certificate; // Only present when editing
@@ -188,7 +182,7 @@ export default function CertificateCreateOrUpdate({ certificate }: Props) {
                             <Button
                                 type="button"
                                 variant="outline"
-                                to={isEditing ? `/certificates/${certificate.id}` : '/certificates'}
+                                onClick={() => window.history.back()}
                             >
                                 Abbrechen
                             </Button>

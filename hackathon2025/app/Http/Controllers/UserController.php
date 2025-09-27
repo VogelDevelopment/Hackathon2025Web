@@ -14,11 +14,12 @@ class UserController extends Controller
 {
     public function index()
     {
-        $users = User::with(['certificates' => function($query) {
-            $query->withPivot('status');
-        }])->orderBy('created_at', 'desc')->get();
-
-        error_log($users);
+        $users = User::with([
+            'certificates' => function ($query) {
+                $query->withPivot('status', 'url');
+            },
+            'dataSources'
+        ])->orderBy('created_at', 'desc')->get();
 
         return Inertia::render('profiles', [
             'users' => $users
@@ -43,7 +44,6 @@ class UserController extends Controller
             'group_name' => 'required|in:admin,operator,user',
             'certificate_ids' => 'array',
             'certificate_ids.*' => 'exists:certificates,id',
-            'certificate_status' => 'in:requested,approved',
         ]);
 
         $user = User::create([
@@ -51,15 +51,17 @@ class UserController extends Controller
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'group_name' => UserGroup::from($validated['group_name']),
-            'email_verified_at' => now(), // Auto-verify for admin-created users
+            'email_verified_at' => now(),
         ]);
 
-        // Attach certificates if provided
+        // If admin wants to pre-assign certificates (without user's file), set status to approved, url null
         if (!empty($validated['certificate_ids'])) {
-            $status = $validated['certificate_status'] ?? 'requested';
             $certificateData = [];
             foreach ($validated['certificate_ids'] as $certId) {
-                $certificateData[$certId] = ['status' => CertificateStatus::from($status)];
+                $certificateData[$certId] = [
+                    'status' => CertificateStatus::APPROVED,
+                    'url' => null
+                ];
             }
             $user->certificates()->attach($certificateData);
         }
@@ -70,14 +72,12 @@ class UserController extends Controller
 
     public function show(User $profile)
     {
-        error_log($profile);
         $profile->load([
-            'certificates' => function($query) {
-                $query->withPivot('status');
+            'certificates' => function ($query) {
+                $query->withPivot('status', 'url');
             },
             'dataSources',
         ]);
-        
         return Inertia::render('profile/show', [
             'user' => $profile
         ]);
@@ -86,10 +86,11 @@ class UserController extends Controller
     public function edit(User $profile)
     {
         $certificates = Certificate::orderBy('name')->get();
-        $profile->load(['certificates' => function($query) {
-            $query->withPivot('status');
-        }]);
-
+        $profile->load([
+            'certificates' => function ($query) {
+                $query->withPivot('status', 'url');
+            }
+        ]);
         return Inertia::render('profile/createOrUpdate', [
             'user' => $profile,
             'certificates' => $certificates
@@ -104,8 +105,7 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8|confirmed',
             'group_name' => 'required|in:admin,operator,user',
             'certificate_ids' => 'array',
-            'certificate_ids.*' => 'exists:certificates,id',
-            'certificate_status' => 'in:requested,approved',
+            'certificate_ids.*' => 'exists:certificates,id'
         ]);
 
         $updateData = [
@@ -114,20 +114,39 @@ class UserController extends Controller
             'group_name' => UserGroup::from($validated['group_name']),
         ];
 
-        // Only update password if provided
         if (!empty($validated['password'])) {
             $updateData['password'] = Hash::make($validated['password']);
         }
 
         $profile->update($updateData);
 
-        // Sync certificates with status
+        // Only admins should do this: pre-assign certificates without file, status = approved, url null
         if (isset($validated['certificate_ids'])) {
-            $status = $validated['certificate_status'] ?? 'requested';
+            // Get existing user certificates as array [certificate_id => ['status'=>..., 'url'=>...]]
+            $existingCertificates = $profile->certificates->keyBy('id')->map(function ($cert) {
+                return [
+                    'status' => $cert->pivot->status,
+                    'url' => $cert->pivot->url,
+                ];
+            })->toArray();
+
             $certificateData = [];
             foreach ($validated['certificate_ids'] as $certId) {
-                $certificateData[$certId] = ['status' => CertificateStatus::from($status)];
+                if (array_key_exists($certId, $existingCertificates)) {
+                    // Preserve existing status and url
+                    $certificateData[$certId] = [
+                        'status' => $existingCertificates[$certId]['status'],
+                        'url' => $existingCertificates[$certId]['url'],
+                    ];
+                } else {
+                    // New assignment defaults to approved or requested? Choose as needed.
+                    $certificateData[$certId] = [
+                        'status' => CertificateStatus::APPROVED,
+                        'url' => null,
+                    ];
+                }
             }
+
             $profile->certificates()->sync($certificateData);
         } else {
             $profile->certificates()->detach();
@@ -139,7 +158,6 @@ class UserController extends Controller
 
     public function destroy(User $profile)
     {
-        // Prevent deleting the current user
         if ($profile->id === auth()->id()) {
             return back()->with('error', 'Du kannst dich nicht selbst löschen!');
         }
@@ -148,5 +166,64 @@ class UserController extends Controller
 
         return redirect('/profiles')
             ->with('success', 'Benutzer erfolgreich gelöscht!');
+    }
+
+    // --- NEW: User uploads their own certificate version ---
+    public function uploadCertificate(Request $request)
+    {
+        $validated = $request->validate([
+            'certificate_id' => 'required|exists:certificates,id',
+            'url' => 'required|url'
+        ]);
+
+        $user = auth()->user();
+
+        $existing = $user->certificates()->where('certificate_id', $validated['certificate_id'])->first();
+        if ($existing) {
+            $user->certificates()->updateExistingPivot($validated['certificate_id'], [
+                'status' => CertificateStatus::REQUESTED,
+                'url' => $validated['url'],
+            ]);
+        } else {
+            $user->certificates()->attach($validated['certificate_id'], [
+                'status' => CertificateStatus::REQUESTED,
+                'url' => $validated['url'],
+            ]);
+        }
+
+        return back()->with('success', 'Ihr Zertifikat wurde eingereicht und wartet auf Freigabe.');
+    }
+
+    // Approve user certificate (admin/operator only) ---
+    public function approveUserCertificate($userId, $certificateId)
+    {
+        $user = User::findOrFail($userId);
+        $user->certificates()->updateExistingPivot($certificateId, [
+            'status' => CertificateStatus::APPROVED,
+        ]);
+        return back()->with('success', 'Zertifikat genehmigt.');
+    }
+
+    // Reject user certificate (admin/operator only) ---
+    public function rejectUserCertificate($userId, $certificateId)
+    {
+        $user = User::findOrFail($userId);
+        $user->certificates()->updateExistingPivot($certificateId, [
+            'status' => CertificateStatus::REJECTED,
+        ]);
+        return back()->with('success', 'Zertifikat abgelehnt.');
+    }// In UserController.php
+
+    public function deleteUserCertificate(User $user, Certificate $certificate)
+    {
+        // Authorization: only admins or the user themselves can delete
+        $currentUser = auth()->user();
+        if ((!$currentUser->group_name === 'admin' || !$currentUser->group_name === 'operator') && $currentUser->id !== $user->id) {
+            abort(403, 'Unauthorized');
+        }
+
+        $user->certificates()->detach($certificate->id);
+
+        return back()->with('success', 'Zertifikat wurde entfernt.');
     }
 }

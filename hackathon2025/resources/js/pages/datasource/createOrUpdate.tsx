@@ -1,25 +1,10 @@
 import AppLayout from '@/layouts/app-layout';
-import { PageProps, type BreadcrumbItem } from '@/types';
+import { Certificate, DataSource, PageProps, type BreadcrumbItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler, useState } from 'react';
 import { XIcon } from 'lucide-react';
 
-interface Certificate {
-    id: number;
-    name: string;
-    url: string;
-}
-
-interface DataSource {
-    id: number;
-    name: string;
-    description: string | null;
-    justification: string | null;
-    url: string | null;
-    needs_clearance: boolean;
-    certificates: Certificate[];
-}
 
 interface Props extends PageProps {
     certificates: Certificate[];
@@ -312,7 +297,7 @@ export default function DataSourceCreateOrUpdate({ certificates, dataSource }: P
                             <Button
                                 type="button"
                                 variant="outline"
-                                to="/datasources"
+                                onClick={() => window.history.back()}
                             >
                                 Abbrechen
                             </Button>

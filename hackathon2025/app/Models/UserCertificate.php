@@ -13,6 +13,7 @@ class UserCertificate extends Pivot
         'user_id',
         'certificate_id', 
         'status',
+        'url',
     ];
 
     protected function casts(): array

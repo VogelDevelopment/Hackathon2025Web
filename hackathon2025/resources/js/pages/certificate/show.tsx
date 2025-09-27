@@ -1,28 +1,9 @@
 import AppLayout from '@/layouts/app-layout';
-import { PageProps, type BreadcrumbItem } from '@/types';
+import { Certificate, PageProps, type BreadcrumbItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Head, usePage } from '@inertiajs/react';
 import { ExternalLinkIcon, PencilIcon, UsersIcon, DatabaseIcon } from 'lucide-react';
 
-interface Certificate {
-    id: number;
-    name: string;
-    url: string;
-    created_at: string;
-    users?: Array<{
-        id: number;
-        name: string;
-        email: string;
-        pivot: {
-            status: 'requested' | 'approved';
-        };
-    }>;
-    data_sources?: Array<{  // Changed to snake_case to match Laravel JSON
-        id: number;
-        name: string;
-        url: string | null;
-    }>;
-}
 
 interface Props extends PageProps {
     certificate: Certificate;

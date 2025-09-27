@@ -1,80 +1,91 @@
-import AppLayout from '@/layouts/app-layout'
-import { type PageProps, type BreadcrumbItem } from '@/types'
+import { Fragment } from 'react'
+import { Link, router } from '@inertiajs/react'
+import { Users as UsersIcon, Pencil as PencilIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePage } from '@inertiajs/react'
-import { UsersIcon, Eye } from 'lucide-react'
+import { PageProps, type User } from '@/types'
+import AppLayout from '@/layouts/app-layout'
+import { Head } from '@inertiajs/react'
 
-interface UserSummary {
-  id: number
-  name: string
-  email: string
-  group_name: string
-  certificates_count: number
-  datasources_count: number
+interface Props {
+  users: User[]
 }
 
-interface Props extends PageProps {
-  users: UserSummary[]
-}
-
-const breadcrumbs: BreadcrumbItem[] = [
-  {
-    title: 'Benutzer',
-    href: '/profiles'
-  }
-]
+const breadcrumbs = [{ title: 'Benutzer', href: '/profiles' }]
 
 export default function Profiles({ users }: Props) {
   const { auth } = usePage<PageProps>().props;
-  const currentUser = auth.user
+  const currentUser = auth?.user
   const isAdmin = currentUser?.group_name === 'admin'
 
   return (
     <AppLayout user={currentUser} breadcrumbs={breadcrumbs}>
+      <Head title="Benutzer Übersicht" />
       <div className="p-6">
-        <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">Benutzerübersicht</h1>
+        <h1 className="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+          Benutzer Übersicht
+        </h1>
         <p className="mb-6 text-gray-600 dark:text-gray-400">
           Übersicht über alle Benutzer und deren Berechtigungen
         </p>
 
         {isAdmin && (
           <Button className="mb-6" size="sm" variant="default" to="/profile/create">
-            <UsersIcon className="mr-2" />Neuen Benutzer erstellen
+            <UsersIcon className="mr-2" />
+            Neuen Benutzer erstellen
           </Button>
         )}
 
         {users.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400">Keine Benutzer gefunden.</p>
+          <p className="text-center text-gray-500 dark:text-gray-400 mt-10">
+            Keine Benutzer gefunden.
+          </p>
         ) : (
-          <div className="overflow-x-auto border border-gray-200 rounded-lg dark:border-gray-700">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-300">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-300">E-Mail</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-300">Gruppe</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium uppercase text-gray-500 dark:text-gray-300">Zertifikate</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium uppercase text-gray-500 dark:text-gray-300">Datenquellen</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium uppercase text-gray-500 dark:text-gray-300">Aktion</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-                {users.map(user => (
-                  <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{user.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm capitalize">{user.group_name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm">{user.certificates_count}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm">{user.datasources_count}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                      <Button size="sm" variant="ghost" to={`/profile/${user.id}`}>
-                        <Eye className="mr-1" />Ansehen
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-0 overflow-auto rounded-lg border border-gray-200 dark:border-gray-700">
+            {/* Header Row */}
+            <div className="grid grid-cols-[2fr_3fr_2fr_1fr_1fr_1fr] bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-300 px-4 py-3 font-semibold text-xs uppercase tracking-wider select-none">
+              <div>Name</div>
+              <div>E-Mail</div>
+              <div>Gruppe</div>
+              <div className="text-center">Zertifikate</div>
+              <div className="text-center">Datenquellen</div>
+              <div></div>
+            </div>
+
+            {/* Data Rows */}
+            {users.map((user) => (
+              <Link
+                key={user.id}
+                href={isAdmin || currentUser?.id === user.id ? `/profile/${user.id}` : '#'}
+                className="block"
+                aria-disabled={!(isAdmin || currentUser?.id === user.id)}
+              >
+                <div className="grid grid-cols-[2fr_3fr_2fr_1fr_1fr_1fr] items-center bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 px-4 py-3 select-none text-gray-900 dark:text-gray-100">
+                  <div className="truncate">{user.name}</div>
+                  <div className="truncate">{user.email}</div>
+                  <div className="capitalize truncate">{user.group_name}</div>
+                  <div className="text-center">{user.certificates?.length ?? 0}</div>
+                  <div className="text-center">{user.data_sources?.length ?? 0}</div>
+                  <div className="text-right">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={e => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        router.visit(`/profile/${user.id}/edit`);
+                      }}
+                      disabled={!isAdmin && currentUser.id !== user.id}
+                      title="Benutzer bearbeiten"
+                    >
+                      <PencilIcon className="mr-1" />
+                      Bearbeiten
+                    </Button>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         )}
       </div>

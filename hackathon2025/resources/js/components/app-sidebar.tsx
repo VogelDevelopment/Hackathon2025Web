@@ -10,10 +10,10 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
+import { home } from '@/routes';
 import { User, type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid, ShieldCheckIcon, Database, UserIcon } from 'lucide-react';
+import { LayoutGrid, ShieldCheckIcon, Database, UserIcon } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const footerNavItems: NavItem[] = [
@@ -23,7 +23,7 @@ export function AppSidebar({user}: {user: User}) {
     const mainNavItems: NavItem[] = [
         {
             title: 'Startseite',
-            href: dashboard(),
+            href: home(),
             icon: LayoutGrid,
         },
         {
@@ -37,8 +37,8 @@ export function AppSidebar({user}: {user: User}) {
             icon: ShieldCheckIcon,
         },
         {
-            title: user.group_name === 'admin' ? 'Alle Nutzer' : 'Mein Profil',
-            href: user.group_name === 'admin' ? "/profiles" : "/profile/" + user.id,
+            title: user?.group_name === 'admin' ? 'Alle Nutzer' : 'Mein Profil',
+            href: user?.group_name === 'admin' ? "/profiles" : "/profile/" + user?.id,
             icon: UserIcon,
         }
     ];
@@ -49,7 +49,7 @@ export function AppSidebar({user}: {user: User}) {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
+                            <Link href={home()} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -63,7 +63,7 @@ export function AppSidebar({user}: {user: User}) {
 
             <SidebarFooter>
                 <NavFooter items={footerNavItems} className="mt-auto" />
-                <NavUser />
+                {user && <NavUser />}
             </SidebarFooter>
         </Sidebar>
     );

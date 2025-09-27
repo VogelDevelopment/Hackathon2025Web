@@ -55,7 +55,7 @@ class User extends Authenticatable
     public function certificates()
     {
         return $this->belongsToMany(Certificate::class, 'user_certificates')
-            ->withPivot('status')
+            ->withPivot('status', 'url')
             ->withTimestamps()
             ->using(UserCertificate::class);
     }
@@ -63,6 +63,19 @@ class User extends Authenticatable
     public function dataSources()
     {
         return $this->hasMany(DataSource::class);
+    }
+
+    public function requestedDataSources()
+    {
+        return $this->belongsToMany(DataSource::class, 'datasource_user_requests', 'user_id', 'datasource_id')
+            ->withTimestamps();
+    }
+
+    public function grantedDataSources()
+    {
+        return $this->belongsToMany(DataSource::class, 'datasource_user_access')
+            ->withPivot('granted')
+            ->withTimestamps();
     }
 
     public function comments()

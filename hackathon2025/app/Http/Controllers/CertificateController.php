@@ -10,7 +10,7 @@ class CertificateController extends Controller
 {
     public function index()
     {
-        $certificates = Certificate::withCount('users', 'dataSources')
+        $certificates = Certificate::with('users', 'dataSources')
             ->orderBy('name')
             ->get();
 
@@ -43,15 +43,6 @@ class CertificateController extends Controller
         $certificate->load(['users' => function($query) {
             $query->withPivot('status');
         }, 'dataSources']);
-    
-        // Debug output - remove after fixing
-        \Log::info('Certificate Show Debug:', [
-            'id' => $certificate->id,
-            'name' => $certificate->name,
-            'url' => $certificate->url,
-            'users_count' => $certificate->users->count(),
-            'datasources_count' => $certificate->dataSources->count(),
-        ]);
         
         return Inertia::render('certificate/show', [
             'certificate' => $certificate

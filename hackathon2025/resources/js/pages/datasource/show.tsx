@@ -1,40 +1,8 @@
 import AppLayout from '@/layouts/app-layout';
-import { PageProps, type BreadcrumbItem } from '@/types';
+import { DataSource, PageProps, type BreadcrumbItem } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { ExternalLinkIcon, PencilIcon, ShieldCheckIcon, MessageCircleIcon, Award } from 'lucide-react';
-
-interface Certificate {
-    id: number;
-    name: string;
-    url: string;
-}
-
-interface User {
-    id: number;
-    name: string;
-    email: string;
-}
-
-interface Comment {
-    id: number;
-    content: string;
-    created_at: string;
-    user: User;
-}
-
-interface DataSource {
-    id: number;
-    name: string;
-    description: string | null;
-    justification: string | null;
-    url: string | null;
-    needs_clearance: boolean;
-    created_at: string;
-    user: User;
-    certificates: Certificate[];
-    comments: Comment[];
-}
 
 interface Props extends PageProps {
     dataSource: DataSource;
@@ -71,12 +39,43 @@ export default function DataSourceShow({ dataSource }: Props) {
         }
     };
 
+    const approveAccessRequest = async (userId: number) => {
+        try {
+            router.post(`/datasources/${dataSource.id}/approve-access`, { user_id: userId });
+            router.reload(); // refresh to show updated data
+        } catch {
+            alert('Fehler beim Genehmigen des Zugriffs.');
+        }
+    };
+
+    const denyAccessRequest = async (userId: number) => {
+        try {
+            router.post(`/datasources/${dataSource.id}/deny-access`, { user_id: userId });
+            router.reload();
+        } catch {
+            alert('Fehler beim Ablehnen des Zugriffs.');
+        }
+    };
+
+    const revokeAccess = (userId: number) => {
+        if (
+            !confirm('Möchten Sie den Zugriff für diesen Benutzer wirklich entziehen?')
+        ) return;
+
+        router.post(`/datasources/${dataSource.id}/revoke-access`, { user_id: userId }, {
+            onSuccess: () => {
+                router.reload();
+            },
+            onError: () => alert('Fehler beim Entziehen des Zugriffs.'),
+        });
+    };
+
     const statusInfo = getStatusInfo();
 
     return (
         <AppLayout user={user} breadcrumbs={breadcrumbs}>
             <Head title={dataSource.name} />
-            
+
             <div className="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -119,28 +118,28 @@ export default function DataSourceShow({ dataSource }: Props) {
                                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Name</dt>
                                     <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{dataSource.name}</dd>
                                 </div>
-                                
+
                                 {dataSource.description && (
                                     <div>
                                         <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Beschreibung</dt>
                                         <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{dataSource.description}</dd>
                                     </div>
                                 )}
-                                
+
                                 {dataSource.justification && (
                                     <div>
                                         <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Begründung</dt>
                                         <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">{dataSource.justification}</dd>
                                     </div>
                                 )}
-                                
+
                                 {dataSource.url && (
                                     <div>
                                         <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Datenquelle URL</dt>
                                         <dd className="mt-1 text-sm">
-                                            <a 
-                                                href={dataSource.url} 
-                                                target="_blank" 
+                                            <a
+                                                href={dataSource.url}
+                                                target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 flex items-center gap-1"
                                             >
@@ -150,7 +149,7 @@ export default function DataSourceShow({ dataSource }: Props) {
                                         </dd>
                                     </div>
                                 )}
-                                
+
                                 <div>
                                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Manuelle Freigabe</dt>
                                     <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
@@ -264,7 +263,7 @@ export default function DataSourceShow({ dataSource }: Props) {
                                 <div className="flex items-center gap-2">
                                     <div className={`w-2 h-2 rounded-full ${dataSource.certificates.length > 0 ? 'bg-amber-500' : 'bg-green-500'}`}></div>
                                     <span className="text-gray-900 dark:text-gray-100">
-                                        {dataSource.certificates.length > 0 
+                                        {dataSource.certificates.length > 0
                                             ? `${dataSource.certificates.length} Zertifikat(e) erforderlich`
                                             : 'Keine Zertifikate erforderlich'
                                         }
@@ -273,7 +272,7 @@ export default function DataSourceShow({ dataSource }: Props) {
                                 <div className="flex items-center gap-2">
                                     <div className={`w-2 h-2 rounded-full ${dataSource.needs_clearance ? 'bg-amber-500' : 'bg-green-500'}`}></div>
                                     <span className="text-gray-900 dark:text-gray-100">
-                                        {dataSource.needs_clearance 
+                                        {dataSource.needs_clearance
                                             ? 'Manuelle Freigabe erforderlich'
                                             : 'Direkter Zugriff möglich'
                                         }
@@ -289,9 +288,9 @@ export default function DataSourceShow({ dataSource }: Props) {
                                     Schnelle Aktionen
                                 </h2>
                                 <div className="space-y-2">
-                                    <Button 
+                                    <Button
                                         href={dataSource.url}
-                                        variant="outline" 
+                                        variant="outline"
                                         className="w-full justify-start"
                                     >
                                         <ExternalLinkIcon />
@@ -301,6 +300,70 @@ export default function DataSourceShow({ dataSource }: Props) {
                             </div>
                         )}
                     </div>
+                    {(isAdmin || isOwner) && ((dataSource.access_requests && dataSource.access_requests.length > 0) || (dataSource.granted_access_users && dataSource.granted_access_users.length > 0)) && (
+                        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                            {dataSource.granted_access_users && dataSource.granted_access_users.length > 0 && (
+                                <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+                                    <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                                        <ShieldCheckIcon className="w-5 h-5" />
+                                        Zugelassene Benutzer ({dataSource.granted_access_users.length})
+                                    </h2>
+                                    <div className="space-y-3">
+                                        {dataSource.granted_access_users.map(user => (
+                                            <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name}</div>
+                                                    <div className="text-xs text-gray-500 dark:text-gray-400">{user.email}</div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => revokeAccess(user.id)}
+                                                        className="px-3 py-1 text-sm font-semibold text-red-600 border border-red-600 rounded hover:bg-red-600 hover:text-white transition"
+                                                    >
+                                                        Zugriff entziehen
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {dataSource.access_requests && dataSource.access_requests.length > 0 && (
+                                <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+                                    <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4 flex items-center gap-2">
+                                        <ShieldCheckIcon className="w-5 h-5" />
+                                        Offene Zugriffsanfragen ({dataSource.access_requests.length})
+                                    </h2>
+                                    <div className="space-y-3">
+                                        {dataSource.access_requests.map(userRequest => (
+                                            <div key={userRequest.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg gap-3 size-fit">
+                                                <div>
+                                                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{userRequest.name}</div>
+                                                    <div className="text-xs text-gray-500 dark:text-gray-400">{userRequest.email}</div>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="default"
+                                                        onClick={() => approveAccessRequest(userRequest.id)}
+                                                    >
+                                                        Genehmigen
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => denyAccessRequest(userRequest.id)}
+                                                    >
+                                                        Ablehnen
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </AppLayout>

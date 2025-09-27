@@ -2,32 +2,8 @@ import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Head, usePage } from '@inertiajs/react';
 import { ExternalLinkIcon, Pencil, Lock, ShieldCheckIcon } from 'lucide-react';
-import { type BreadcrumbItem, type PageProps } from '@/types';
-
-interface Certificate {
-  id: number;
-  name: string;
-  url: string;
-  pivot: {
-    status: string;
-  };
-}
-
-interface DataSource {
-  id: number;
-  name: string;
-  url: string | null;
-  needs_clearance: boolean;
-}
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  group_name: 'admin' | 'operator' | 'user';
-  certificates: Certificate[];
-  data_sources: DataSource[];
-}
+import { Certificate, type BreadcrumbItem, type PageProps } from '@/types';
+import { User } from '@/types';
 
 interface Props extends PageProps {
   user: User;
@@ -40,11 +16,48 @@ export default function UserShow({ user }: Props) {
 
   const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Benutzer', href: '/profiles' },
-    { title: user.name, href: `/profile/${user.id}` }
+    { title: user.name, href: `/profile/${user.id}` },
   ];
 
   const approvedCertificates = user.certificates.filter(cert => cert.pivot.status === 'approved');
   const requestedCertificates = user.certificates.filter(cert => cert.pivot.status === 'requested');
+  const rejectedCertificates = user.certificates.filter(cert => cert.pivot.status === 'rejected');
+
+  function renderCertificateList(
+    title: string,
+    certificates: Certificate[],
+    colorClasses: string
+  ) {
+    if (certificates.length === 0) return null;
+    return (
+      <div className="bg-white dark:bg-gray-800 shadow rounded p-6 mb-6">
+        <h3 className={`flex items-center gap-2 text-lg font-semibold mb-4 ${colorClasses}`}>
+          <ShieldCheckIcon /> {title} ({certificates.length})
+        </h3>
+        <ul className="space-y-2 max-h-64 overflow-y-auto">
+          {certificates.map(cert => (
+            <li key={cert.id} className="flex justify-between items-center rounded p-2 bg-gray-50 dark:bg-gray-700">
+              <div>
+                <a
+                  href={cert.pivot.url ?? cert.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium hover:underline break-all"
+                  title={(cert.pivot.url ?? cert.url) || ''}
+                >
+                  {cert.name}
+                  {cert.pivot.url && <span className="ml-2 text-xs italic">(Deine Version)</span>}
+                </a>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Status: <strong>{cert.pivot.status.charAt(0).toUpperCase() + cert.pivot.status.slice(1)}</strong>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   return (
     <AppLayout user={currentUser} breadcrumbs={breadcrumbs}>
@@ -66,6 +79,7 @@ export default function UserShow({ user }: Props) {
         </header>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Profile Info */}
           <div className="bg-white dark:bg-gray-800 shadow rounded p-6">
             <h2 className="text-lg font-semibold mb-4">Profil Informationen</h2>
             <dl className="space-y-2 text-sm">
@@ -84,55 +98,44 @@ export default function UserShow({ user }: Props) {
             </dl>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 shadow rounded p-6">
-            <h2 className="flex items-center gap-2 text-lg font-semibold mb-4">
-              <ShieldCheckIcon /> Zertifikate ({user.certificates.length})
-            </h2>
-            {user.certificates.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">Dieser Benutzer besitzt keine Zertifikate.</p>
-            ) : (
-              <ul className="space-y-2 max-h-64 overflow-y-auto">
-                {user.certificates.map(cert => (
-                  <li key={cert.id} className="flex justify-between items-center rounded p-2 bg-gray-50 dark:bg-gray-700">
-                    <div>
-                      <a
-                        href={cert.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium hover:underline"
-                      >
-                        {cert.name}
-                      </a>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{cert.pivot.status}</div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+          {/* Certificates Sections */}
+          <div className="md:col-span-2 space-y-6">
+            {renderCertificateList('Genehmigte Zertifikate', approvedCertificates,
+              'text-green-700 dark:text-green-300')}
+            {renderCertificateList('Ausstehende Zertifikate', requestedCertificates,
+              'text-yellow-700 dark:text-yellow-300')}
+            {renderCertificateList('Abgelehnte Zertifikate', rejectedCertificates,
+              'text-red-700 dark:text-red-300')}
           </div>
 
-          <div className="bg-white dark:bg-gray-800 shadow rounded p-6">
+          {/* Data Sources */}
+          <div className="bg-white dark:bg-gray-800 shadow rounded p-6 md:col-span-3">
             <h2 className="flex items-center gap-2 text-lg font-semibold mb-4">
               <Lock /> Zugriff auf Datenquellen ({user.data_sources.length})
             </h2>
             {user.data_sources.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">Dieser Benutzer hat keinen Zugriff auf Datenquellen.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Dieser Benutzer hat keinen Zugriff auf Datenquellen.
+              </p>
             ) : (
               <ul className="space-y-2 max-h-64 overflow-y-auto">
                 {user.data_sources.map(ds => (
                   <li key={ds.id} className="flex justify-between items-center rounded p-2 bg-gray-50 dark:bg-gray-700">
                     <div>
                       <a
-                        href={ds.url || '#'}
-                        target={ds.url ? "_blank" : undefined}
-                        rel={ds.url ? "noopener noreferrer" : undefined}
-                        className={`font-medium ${ds.url ? 'hover:underline' : 'text-gray-400'}`}
+                        href={`/datasources/${ds.id}` || '#'}
+                        target={'_blank'}
+                        rel={'noopener noreferrer'}
+                        className={"font-medium hover:underline"}
+                        title={ds.name || 'Keine URL verfügbar'}
                       >
                         {ds.name}
                       </a>
                       <div className="text-xs text-gray-500 dark:text-gray-400">
                         {ds.url ? 'Verfügbar' : 'Anfrage'}
-                        {ds.needs_clearance && <span className="ml-1 text-amber-500"> (Manuelle Freigabe erforderlich)</span>}
+                        {ds.needs_clearance && (
+                          <span className="ml-1 text-amber-500"> (Manuelle Freigabe erforderlich)</span>
+                        )}
                       </div>
                     </div>
                   </li>

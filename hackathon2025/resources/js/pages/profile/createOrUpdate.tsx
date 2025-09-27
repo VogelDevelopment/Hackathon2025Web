@@ -1,30 +1,11 @@
 import AppLayout from '@/layouts/app-layout';
-import { PageProps, type BreadcrumbItem } from '@/types';
+import { Certificate, PageProps, User, type BreadcrumbItem } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { FormEventHandler, useState } from 'react';
 import { ExternalLinkIcon, XIcon } from 'lucide-react';
+import { UserCertificateUploadForm } from './usercertificateUploadForm';
 
-interface Certificate {
-    id: number;
-    name: string;
-    url: string;
-}
-
-interface User {
-    id: number;
-    name: string;
-    email: string;
-    group_name: 'admin' | 'operator' | 'user';
-    certificates: Array<{
-        id: number;
-        name: string;
-        url: string;
-        pivot: {
-            status: 'requested' | 'approved';
-        };
-    }>;
-}
 
 interface Props extends PageProps {
     certificates: Certificate[];
@@ -36,28 +17,16 @@ export default function UserCreateOrUpdate({ certificates, user: editUser }: Pro
     const user = auth.user;
     const isAdmin = user?.group_name === 'admin';
     const isEditing = !!editUser;
-    const [showCertificates, setShowCertificates] = useState(false);
+    const isSelf = isEditing && user?.id === editUser?.id;
 
     const breadcrumbs: BreadcrumbItem[] = [
-        {
-            title: 'Benutzer',
-            href: '/users',
-        },
-        ...(isEditing ? [
-            {
-                title: editUser.name,
-                href: `/users/${editUser.id}`,
-            },
-            {
-                title: 'Bearbeiten',
-                href: `/users/${editUser.id}/edit`,
-            }
-        ] : [
-            {
-                title: 'Neuer Benutzer',
-                href: '/users/create',
-            }
-        ])
+        { title: 'Benutzer', href: '/profiles' },
+        ...(isEditing
+            ? [
+                { title: editUser.name, href: `/profile/${editUser.id}` },
+                { title: 'Bearbeiten', href: `/profile/${editUser.id}/edit` },
+            ]
+            : [{ title: 'Neuer Benutzer', href: '/profile/create' }]),
     ];
 
     const { data, setData, post, put, processing, errors, reset } = useForm({
@@ -72,7 +41,7 @@ export default function UserCreateOrUpdate({ certificates, user: editUser }: Pro
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        
+
         if (isEditing) {
             put(`/profile/${editUser.id}`, {
                 onSuccess: () => reset('password', 'password_confirmation'),
@@ -91,12 +60,18 @@ export default function UserCreateOrUpdate({ certificates, user: editUser }: Pro
         setData('certificate_ids', newSelected);
     };
 
-    const selectedCertificates = certificates.filter(cert => 
-        data.certificate_ids.includes(cert.id)
+    const selectedCertificates = certificates.filter(cert =>
+        data.certificate_ids.includes(cert.id),
     );
 
-    // Only admins can create/edit users
-    if (!isAdmin) {
+    // Collect user-uploaded certs from editUser.certificates
+    // Group by status for display
+    const approvedUserCerts = editUser?.certificates.filter(cert => cert.pivot.status === 'approved') || [];
+    const requestedUserCerts = editUser?.certificates.filter(cert => cert.pivot.status === 'requested') || [];
+    const rejectedUserCerts = editUser?.certificates.filter(cert => cert.pivot.status === 'rejected') || [];
+
+    // Non-admin users can only edit themselves and cannot change group or certificates here
+    if (!isAdmin && !isSelf) {
         return (
             <AppLayout user={user} breadcrumbs={breadcrumbs}>
                 <Head title="Zugriff verweigert" />
@@ -106,13 +81,9 @@ export default function UserCreateOrUpdate({ certificates, user: editUser }: Pro
                             Zugriff verweigert
                         </h3>
                         <p className="text-gray-500 dark:text-gray-400 mb-4">
-                            Nur Administratoren können Benutzer erstellen oder bearbeiten.
+                            Nur Administratoren können andere Benutzer bearbeiten.
                         </p>
-                        {isAdmin && (
-                            <Button to="/profiles">
-                                Zurück zu Benutzern
-                            </Button>
-                        )}
+                        <Button to="/profiles">Zurück zu Benutzern</Button>
                     </div>
                 </div>
             </AppLayout>
@@ -121,12 +92,10 @@ export default function UserCreateOrUpdate({ certificates, user: editUser }: Pro
 
     return (
         <AppLayout user={user} breadcrumbs={breadcrumbs}>
-            <Head title={
-                isEditing 
-                    ? `${editUser.name} bearbeiten`
-                    : 'Neuen Benutzer erstellen'
-            } />
-            
+            <Head
+                title={isEditing ? `${editUser.name} bearbeiten` : 'Neuen Benutzer erstellen'}
+            />
+
             <div className="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4">
                 <div className="flex items-center justify-between">
                     <div>
@@ -134,243 +103,239 @@ export default function UserCreateOrUpdate({ certificates, user: editUser }: Pro
                             {isEditing ? 'Benutzer bearbeiten' : 'Neuen Benutzer erstellen'}
                         </h1>
                         <p className="text-gray-600 dark:text-gray-400">
-                            {isEditing 
+                            {isEditing
                                 ? 'Bearbeite die Benutzerdetails und Berechtigungen'
-                                : 'Erstelle einen neuen Benutzer mit entsprechenden Berechtigungen'
-                            }
+                                : 'Erstelle einen neuen Benutzer mit entsprechenden Berechtigungen'}
                         </p>
                     </div>
                 </div>
 
-                <div>
-                    <form onSubmit={submit} className="space-y-6">
-                        <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
-                            <div className="space-y-4">
-                                {/* Name */}
-                                <div>
-                                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Name *
-                                    </label>
-                                    <input
-                                        id="name"
-                                        name="name"
-                                        type="text"
-                                        required
-                                        value={data.name}
-                                        onChange={(e) => setData('name', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
-                                        placeholder="Max Mustermann"
-                                    />
-                                    {errors.name && (
-                                        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                                            {errors.name}
-                                        </p>
-                                    )}
-                                </div>
+                <form onSubmit={submit} className="space-y-6">
+                    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 space-y-4">
+                        {/* User Info Inputs */}
+                        {/* Name */}
+                        <div>
+                            <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Name *
+                            </label>
+                            <input
+                                id="name"
+                                name="name"
+                                type="text"
+                                required
+                                value={data.name}
+                                onChange={(e) => setData('name', e.target.value)}
+                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+                                placeholder="Max Mustermann"
+                            />
+                            {errors.name && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errors.name}</p>}
+                        </div>
 
-                                {/* Email */}
-                                <div>
-                                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        E-Mail *
-                                    </label>
-                                    <input
-                                        id="email"
-                                        name="email"
-                                        type="email"
-                                        required
-                                        value={data.email}
-                                        onChange={(e) => setData('email', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
-                                        placeholder="max@example.com"
-                                    />
-                                    {errors.email && (
-                                        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                                            {errors.email}
-                                        </p>
-                                    )}
-                                </div>
+                        {/* Email */}
+                        <div>
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                E-Mail *
+                            </label>
+                            <input
+                                id="email"
+                                name="email"
+                                type="email"
+                                required
+                                value={data.email}
+                                onChange={(e) => setData('email', e.target.value)}
+                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+                                placeholder="max@example.com"
+                            />
+                            {errors.email && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errors.email}</p>}
+                        </div>
 
-                                {/* Password */}
-                                <div>
-                                    <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Passwort {isEditing ? '(leer lassen um nicht zu ändern)' : '*'}
-                                    </label>
-                                    <input
-                                        id="password"
-                                        name="password"
-                                        type="password"
-                                        required={!isEditing}
-                                        value={data.password}
-                                        onChange={(e) => setData('password', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
-                                    />
-                                    {errors.password && (
-                                        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                                            {errors.password}
-                                        </p>
-                                    )}
-                                </div>
+                        {/* Password */}
+                        <div>
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Passwort {isEditing ? '(leer lassen um nicht zu ändern)' : '*'}
+                            </label>
+                            <input
+                                id="password"
+                                name="password"
+                                type="password"
+                                required={!isEditing}
+                                value={data.password}
+                                onChange={(e) => setData('password', e.target.value)}
+                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+                            />
+                            {errors.password && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errors.password}</p>}
+                        </div>
 
-                                {/* Password Confirmation */}
-                                <div>
-                                    <label htmlFor="password_confirmation" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Passwort bestätigen {isEditing ? '' : '*'}
-                                    </label>
-                                    <input
-                                        id="password_confirmation"
-                                        name="password_confirmation"
-                                        type="password"
-                                        required={!isEditing}
-                                        value={data.password_confirmation}
-                                        onChange={(e) => setData('password_confirmation', e.target.value)}
-                                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
-                                    />
-                                </div>
+                        {/* Password Confirmation */}
+                        <div>
+                            <label htmlFor="password_confirmation" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Passwort bestätigen {isEditing ? '' : '*'}
+                            </label>
+                            <input
+                                id="password_confirmation"
+                                name="password_confirmation"
+                                type="password"
+                                required={!isEditing}
+                                value={data.password_confirmation}
+                                onChange={(e) => setData('password_confirmation', e.target.value)}
+                                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+                            />
+                        </div>
 
-                                {/* Group Selection */}
-                                <div>
-                                    <label htmlFor="group_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Benutzergruppe *
-                                    </label>
-                                    <select
-                                        id="group_name"
-                                        name="group_name"
-                                        value={data.group_name}
-                                        onChange={(e) => setData('group_name', e.target.value as any)}
-                                        className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                    >
-                                        <option value="user">Benutzer</option>
-                                        <option value="operator">Operator</option>
-                                        <option value="admin">Administrator</option>
-                                    </select>
-                                    {errors.group_name && (
-                                        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                                            {errors.group_name}
-                                        </p>
-                                    )}
-                                </div>
-
-                                {/* Certificate Selection */}
-                                <div>
-                                    <div className="flex items-center justify-between">
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            Zertifikate ({data.certificate_ids.length})
-                                        </label>
-                                        <div className="flex items-center gap-2">
-                                            <select
-                                                value={data.certificate_status}
-                                                onChange={(e) => setData('certificate_status', e.target.value as any)}
-                                                className="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                            >
-                                                <option value="requested">Angefragt</option>
-                                                <option value="approved">Genehmigt</option>
-                                            </select>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => setShowCertificates(!showCertificates)}
-                                            >
-                                                {showCertificates ? 'Ausblenden' : 'Auswählen'}
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    {/* Selected Certificates Display */}
-                                    {data.certificate_ids.length > 0 && (
-                                        <div className="mt-2 flex flex-wrap gap-2">
-                                            {selectedCertificates.map((certificate) => (
-                                                <span
-                                                    key={certificate.id}
-                                                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded dark:bg-blue-900 dark:text-blue-200"
-                                                >
-                                                    {certificate.name}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleCertificateToggle(certificate.id)}
-                                                        className="hover:bg-blue-200 rounded-full p-0.5 dark:hover:bg-blue-800"
-                                                    >
-                                                        <XIcon className="w-3 h-3" />
-                                                    </button>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {/* Certificate Selection List */}
-                                    {showCertificates && (
-                                        <div className="mt-3 max-h-48 overflow-y-auto border border-gray-200 rounded-md dark:border-gray-600">
-                                            {certificates.length === 0 ? (
-                                                <div className="p-4 text-center text-gray-500 dark:text-gray-400">
-                                                    Keine Zertifikate verfügbar.
-                                                </div>
-                                            ) : (
-                                                <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                                                    {certificates.map((certificate) => (
-                                                        <label
-                                                            key={certificate.id}
-                                                            className="flex items-center p-3 hover:bg-gray-50 cursor-pointer dark:hover:bg-gray-700"
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={data.certificate_ids.includes(certificate.id)}
-                                                                onChange={() => handleCertificateToggle(certificate.id)}
-                                                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded dark:border-gray-600"
-                                                            />
-                                                            <div className="ml-3 flex-1">
-                                                                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                                    {certificate.name}
-                                                                </div>
-                                                                <div className="text-xs text-blue-600 dark:text-blue-400">
-                                                                    <a 
-                                                                        href={certificate.url} 
-                                                                        target="_blank" 
-                                                                        rel="noopener noreferrer"
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                        className="flex items-center gap-1"
-                                                                    >
-                                                                        <ExternalLinkIcon className="w-3 h-3" />
-                                                                        Zertifikat anzeigen
-                                                                    </a>
-                                                                </div>
-                                                            </div>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {errors.certificate_ids && (
-                                        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                                            {errors.certificate_ids}
-                                        </p>
-                                    )}
-                                </div>
+                        {/* Group Selection - Admin only */}
+                        {isAdmin && (
+                            <div>
+                                <label htmlFor="group_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Benutzergruppe *
+                                </label>
+                                <select
+                                    id="group_name"
+                                    name="group_name"
+                                    value={data.group_name}
+                                    onChange={(e) => setData('group_name', e.target.value as any)}
+                                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                >
+                                    <option value="user">Benutzer</option>
+                                    <option value="operator">Operator</option>
+                                    <option value="admin">Administrator</option>
+                                </select>
+                                {errors.group_name && <p className="mt-2 text-sm text-red-600 dark:text-red-400">{errors.group_name}</p>}
                             </div>
-                        </div>
+                        )}
 
-                        {/* Form Actions */}
-                        <div className="flex items-center justify-end space-x-4">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                to={isEditing ? `/profile/${editUser.id}` : '/dashboard'}
-                            >
-                                Abbrechen
-                            </Button>
-                            <Button
-                                type="submit"
-                                disabled={processing}
-                            >
-                                {processing 
-                                    ? (isEditing ? 'Wird gespeichert...' : 'Wird erstellt...') 
-                                    : (isEditing ? 'Änderungen speichern' : 'Benutzer erstellen')
-                                }
-                            </Button>
-                        </div>
-                    </form>
-                </div>
+                        {isAdmin && editUser && (
+                            <section className="bg-white dark:bg-gray-800 shadow rounded-lg space-y-4">
+                                <h2 className="text-lg font-semibold mb-4">Benutzer-Zertifikate</h2>
+                                {editUser.certificates.length === 0 && (
+                                    <p className="text-gray-500 dark:text-gray-400">Keine Zertifikate vom Benutzer eingereicht.</p>
+                                )}
+                                {editUser.certificates.length > 0 && (
+                                    <ul className="space-y-2 max-h-64 overflow-y-auto">
+                                        {editUser.certificates.map((cert) => (
+                                            <li
+                                                key={cert.id}
+                                                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded"
+                                            >
+                                                <div>
+                                                    <div className="font-medium text-gray-900 dark:text-gray-100">{cert.name}</div>
+                                                    <a
+                                                        href={cert.pivot.url ?? cert.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline truncate max-w-xs block"
+                                                        title={cert.pivot.url ?? cert.url}
+                                                    >
+                                                        {cert.pivot.url ? 'Benutzer Zertifikat ansehen' : 'Kein Zertifikat hinterlegt'}
+                                                    </a>
+                                                </div>
+
+                                                <div className="flex items-center space-x-2">
+                                                    <span
+                                                        className={
+                                                            cert.pivot.status === 'approved'
+                                                                ? 'px-2 py-1 text-xs font-semibold rounded bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                                                : cert.pivot.status === 'requested'
+                                                                    ? 'px-2 py-1 text-xs font-semibold rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                                                                    : 'px-2 py-1 text-xs font-semibold rounded bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                                        }
+                                                    >
+                                                        {cert.pivot.status.charAt(0).toUpperCase() + cert.pivot.status.slice(1)}
+                                                    </span>
+
+                                                    {/* Buttons to approve/reject */}
+                                                    {cert.pivot.status !== 'approved' && (
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                router.patch(`/profile/${editUser.id}/certificate/${cert.id}/approve`);
+                                                            }}
+                                                        >
+                                                            Genehmigen
+                                                        </Button>
+                                                    )}
+                                                    {cert.pivot.status !== 'rejected' && (
+                                                        <Button
+                                                            variant="destructive"
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                router.patch(`/profile/${editUser.id}/certificate/${cert.id}/reject`);
+                                                            }}
+                                                        >
+                                                            Ablehnen
+                                                        </Button>
+                                                    )}
+                                                    <Button
+                                                        variant="destructive"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            if (confirm('Möchten Sie dieses Zertifikat wirklich löschen?')) {
+                                                                router.delete(`/profile/${editUser.id}/certificate/${cert.id}`);
+                                                            }
+                                                        }}
+                                                        title="Zertifikat löschen"
+                                                    >
+                                                        Löschen
+                                                    </Button>
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </section>
+                        )}
+                    </div>
+
+                    {/* Form Actions */}
+                    <div className="flex items-center justify-end space-x-4">
+                        <Button type="button" variant="outline" onClick={() => window.history.back()}>
+                            Abbrechen
+                        </Button>
+                        <Button type="submit" disabled={processing}>
+                            {processing
+                                ? isEditing
+                                    ? 'Wird gespeichert...'
+                                    : 'Wird erstellt...'
+                                : isEditing
+                                    ? 'Änderungen speichern'
+                                    : 'Benutzer erstellen'}
+                        </Button>
+                    </div>
+                </form>
+
+                {/* User self-upload certificate section */}
+                {isSelf && (
+                    <section className="mt-10 bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Deine Zertifikate einreichen</h2>
+                        <UserCertificateUploadForm certificates={certificates} />
+                        {/* Optionally show list of user's uploaded certificates and their status here */}
+                        {editUser?.certificates.length ? (
+                            <div className="mt-4 space-y-2">
+                                <h3 className="font-semibold text-gray-900 dark:text-gray-100">Hochgeladene Zertifikate</h3>
+                                <ul className="text-sm">
+                                    {editUser.certificates.map(cert => (
+                                        <li key={cert.id} className="flex justify-between items-center">
+                                            <a
+                                                href={cert.pivot.url ?? cert.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                                            >
+                                                {cert.name}
+                                            </a>
+                                            <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 capitalize">
+                                                {cert.pivot.status}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ) : null}
+                    </section>
+                )}
             </div>
         </AppLayout>
     );

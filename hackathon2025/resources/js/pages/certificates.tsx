@@ -1,17 +1,8 @@
 import AppLayout from '@/layouts/app-layout';
-import { PageProps, type BreadcrumbItem } from '@/types';
+import { Certificate, PageProps, type BreadcrumbItem } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Head, usePage } from '@inertiajs/react';
 import { PlusIcon, EyeIcon, PencilIcon, ExternalLinkIcon, TrashIcon } from 'lucide-react';
-
-interface Certificate {
-    id: number;
-    name: string;
-    url: string;
-    users_count?: number;
-    data_sources_count?: number;
-    created_at: string;
-}
 
 interface Props extends PageProps {
     certificates: Certificate[];
@@ -110,8 +101,8 @@ export default function Certificates({ certificates }: Props) {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                             <div className="space-y-1">
-                                                <div>{certificate.users_count || 0} Benutzer</div>
-                                                <div>{certificate.data_sources_count || 0} Datenquellen</div>
+                                                <div>{certificate.users?.length || 0} Benutzer</div>
+                                                <div>{certificate.data_sources?.length || 0} Datenquellen</div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
