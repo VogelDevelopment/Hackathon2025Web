@@ -48,7 +48,7 @@ export default function Dashboard() {
                         </>
                     )}
                 </div>
-                <div className='py-16 md:py-24 flex flex-col items-center'>
+                <div className='pt-16 md:pt-24 flex flex-col items-center'>
                 <header className="max-w-4xl text-center mb-20">
                     <h1 className="text-4xl md:text-5xl font-extrabold mb-6 text-gray-900 dark:text-gray-100">
                         Datenraum der Zukunft - Zugänge schaffen, Potenziale entfalten

@@ -19,7 +19,7 @@ import AppLogo from './app-logo';
 const footerNavItems: NavItem[] = [
 ];
 
-export function AppSidebar({user}: {user: User}) {
+export function AppSidebar({ user }: { user: User }) {
     const mainNavItems: NavItem[] = [
         {
             title: 'Startseite',
@@ -35,13 +35,17 @@ export function AppSidebar({user}: {user: User}) {
             title: 'Zertifikate',
             href: "/certificates",
             icon: ShieldCheckIcon,
-        },
-        {
-            title: user?.group_name === 'admin' ? 'Alle Nutzer' : 'Mein Profil',
-            href: user?.group_name === 'admin' ? "/profiles" : "/profile/" + user?.id,
-            icon: UserIcon,
         }
     ];
+    if (user != null) {
+        mainNavItems.push(
+            {
+                title: user?.group_name === 'admin' ? 'Alle Nutzer' : 'Mein Profil',
+                href: user?.group_name === 'admin' ? "/profiles" : "/profile/" + user?.id,
+                icon: UserIcon,
+            }
+        );
+    }
 
     return (
         <Sidebar collapsible="icon" variant="inset">
