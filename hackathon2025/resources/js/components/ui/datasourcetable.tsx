@@ -17,6 +17,7 @@ export function DataSourceTable({ dataSources, onRowClick, requestStatuses = {} 
     const isAdmin = user?.group_name === 'admin';
 
     const userHasRequiredCerts = (ds: DataSource) => {
+        if (isAdmin) return true;
         const userCertIds = new Set(user.certificates.filter(c => c.pivot.status === 'approved').map(c => c.id));
         const requiredCertIds = ds.certificates.map(c => c.id);
         return requiredCertIds.every(id => userCertIds.has(id));

@@ -218,7 +218,7 @@ class UserController extends Controller
     {
         // Authorization: only admins or the user themselves can delete
         $currentUser = auth()->user();
-        if ((!$currentUser->group_name === 'admin' || !$currentUser->group_name === 'operator') && $currentUser->id !== $user->id) {
+        if ((!$currentUser->group_name === UserGroup::ADMIN || !$currentUser->group_name === UserGroup::OPERATOR) && $currentUser->id !== $user->id) {
             abort(403, 'Unauthorized');
         }
 

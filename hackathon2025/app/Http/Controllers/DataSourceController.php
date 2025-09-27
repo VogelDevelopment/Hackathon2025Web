@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\UserGroup;
 use App\Models\DataSource;
 use App\Models\Certificate;
 use App\Enums\CertificateStatus;
@@ -92,11 +93,9 @@ class DataSourceController extends Controller
 
         // Load all necessary relationships upfront
         $dataSource->load(['certificates', 'user', 'comments', 'grantedAccessUsers', 'accessRequests']);
-        
-        error_log($dataSource);
 
         // Check if current user is admin, operator, or owner
-        if (in_array($user->group_name, ['admin', 'operator']) || $user->id === $dataSource->user_id) {
+        if ($user->group_name === UserGroup::ADMIN || $user->group_name === UserGroup::OPERATOR || $user->id === $dataSource->user_id) {
             // Operators have implicit access
             // Pass all necessary data, including pending access requests (where granted is false)
             $pendingRequests = $dataSource->accessRequests()->wherePivot('granted', false)->get();
@@ -222,7 +221,7 @@ class DataSourceController extends Controller
 
         // Only allow admin or owner
         $user = auth()->user();
-        if (!in_array($user->group_name, ['admin', 'operator']) && $user->id !== $dataSource->user_id) {
+        if (!($user->group_name === UserGroup::ADMIN || $user->group_name === UserGroup::OPERATOR) && $user->id !== $dataSource->user_id) {
             abort(403, 'Unauthorized.');
         }
 

@@ -25,6 +25,9 @@ export default function DataSources({ dataSources, certificates }: { dataSources
   // Handle clicking on a datasource row (or button) to check access & show modals
   const handleAccessCheck = (dataSource: DataSourceType) => {
     if (isAdmin) return router.visit(`/datasources/${dataSource.id}`); // Admin has access, no popup
+    if (user.id === dataSource?.user?.id) {
+      return router.visit(`/datasources/${dataSource.id}`);
+    }
 
     const userCertIds = new Set(user.certificates.filter(c => c.pivot.status === 'approved').map(c => c.id));
     const requiredCertIds = dataSource.certificates.map(c => c.id);
